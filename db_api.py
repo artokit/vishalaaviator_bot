@@ -1,6 +1,7 @@
 import asyncio
 import aiosqlite
 from typing import Union
+import os
 
 connect: Union[None | aiosqlite.Connection] = None
 cursor: Union[None | aiosqlite.Cursor] = None
@@ -8,7 +9,7 @@ cursor: Union[None | aiosqlite.Cursor] = None
 
 async def connect_to_database():
     global connect, cursor
-    connect = await aiosqlite.connect('db.sqlite')
+    connect = await aiosqlite.connect(os.path.join(os.path.dirname(__file__), 'db.sqlite'))
     cursor = await connect.cursor()
 
 
@@ -46,6 +47,9 @@ async def check_user_input(site_id):
 async def get_postback_by_user_id(user_id):
     return await (await cursor.execute('SELECT * FROM POSTBACKS where tg_id = ?', (user_id, ))).fetchall()
 
+
+async def get_user_by_site_id(site_id):
+    return await (await cursor.execute('SELECT * FROM POSTBACKS where id = ?', (site_id,))).fetchall()
 
 loop = asyncio.get_event_loop()
 waits = asyncio.wait([loop.create_task(connect_to_database())])

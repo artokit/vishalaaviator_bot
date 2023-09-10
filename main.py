@@ -16,6 +16,10 @@ import db_api
 VIDEO_PATH = os.path.join(os.path.dirname(__file__), 'videos')
 PHOTOS_PATH = os.path.join(os.path.dirname(__file__), 'photos')
 CHANNEL_ID_POSTBACK = -1001919193583
+TEST_GAME_IDS = {
+
+}
+
 ID_TO_CHECK = {
 
 }
@@ -33,6 +37,23 @@ async def send_video(user_id, video_name, **kwargs):
         await bot.send_video(user_id, media_hash[video_name], **kwargs)
 
 
+async def register(user_id, code):
+    await send_photo(
+        user_id,
+        'reg.jpg',
+        caption='Friend, you have passed the registration!🔥\n'
+                'To activate my bot you need to make a deposit of 2000Rs on this link - https://avtorpromt.com/mbYxys\n'
+                'But I will make an exception for you!\n'
+                'Deposit 🛑1000Rs🛑 and write here your ID\n'
+                'This is a prerequisite! \n'
+                '🔥My subscribers are already earning from 5000Rs per day! 🔥\n'
+                'Don\'t miss your chance!🙏\n',
+        reply_markup=keyboards.contact_button.as_markup()
+    )
+
+    await db_api.update_postback(user_id, code)
+
+
 async def send_photo(user_id, photo_name, **kwargs):
     if photo_name not in media_hash:
         message = await bot.send_photo(
@@ -45,12 +66,15 @@ async def send_photo(user_id, photo_name, **kwargs):
         await bot.send_photo(user_id, media_hash[photo_name], **kwargs)
 
 
-async def send_predict(message: Message):
+async def send_predict(message: Message, markup=None):
+    if markup is None:
+        markup = keyboards.res_of_game.as_markup()
+
     site_id = (await db_api.get_postback_by_user_id(message.chat.id))[0][0]
     await message.answer(
         f'PLAYER ID: {site_id}\n'
         f'CASHOUT {random.randint(100, 400) / 100}✅',
-        reply_markup=keyboards.res_of_game.as_markup()
+        reply_markup=markup
     )
 
 
@@ -94,7 +118,7 @@ async def predict_by_res_of_game(call: CallbackQuery):
 @dp.callback_query(F.data == 'menu')
 async def get_menu(call: CallbackQuery):
     user = await db_api.get_user(call.message.chat.id)
-    print(user)
+
     if user:
         if user[0][2]:
             return await send_predict(call.message)
@@ -113,19 +137,74 @@ async def get_menu(call: CallbackQuery):
 
 @dp.channel_post(F.chat.id == CHANNEL_ID_POSTBACK)
 async def handler_register_users(message: Message):
+
     if message.text.endswith('Reg'):
         await db_api.add_postback(message.text.split(':')[0])
         user_id = site_id_in_checker(int(message.text.split(':')[0]))
 
         if user_id:
-            await bot.send_message(
-                user_id,
-                'You are welcome! Click button for continue',
-                reply_markup=keyboards.start.as_markup()
-            )
-            await db_api.update_postback(user_id, int(message.text.split(':')[0]))
-            await db_api.update_can_play(user_id, 1)
+            await register(user_id, int(message.text.split(':')[0]))
             del ID_TO_CHECK[user_id]
+    try:
+        if message.text.split(':')[1] == 'fdp':
+            user_id = (await db_api.get_user_by_site_id(message.text.split(':')[0]))[0][1]
+
+            if float(message.text.split(':')[2].replace(',', '.')) >= 1000:
+                await db_api.update_can_play(user_id, 1)
+                await bot.send_message(
+                    user_id,
+                    'You\'re welcome. Click button for start send predicts',
+                    reply_markup=keyboards.welcome.as_markup()
+                )
+            else:
+                await bot.send_message(
+                    user_id,
+                    '🔥Bro, I see that you have registered and deposited!🔥😓But, your profile balance '
+                    'is not enough to activate the bot!😓\n' 
+                    'I see that you are serious!🔥\n'
+                    '🟢I\'m making a promotion for you - to make the bot work properly - you need '
+                    'to deposit 1000Rs!🟢\n'
+                    '🛑On this link - https://avtorpromt.com/mbYxys🛑\n'
+                    '🔥🔥Discount - the bot is twice as cheap!🔥🔥 Quickly top up your balance and start earning!\n'
+                    '🕕There are 2 test signals available for you! 🕕Permanent signals will be active when your '
+                    'profile balance will be 1000Rs from one top-up!\n'
+                    '🔼 It is obligatory🔼',
+                )
+                TEST_GAME_IDS[user_id] = 0
+                await bot.send_message(
+                    user_id,
+                    'Your 2 test signals are ready! Click NEW ROUND and place your bets',
+                    reply_markup=keyboards.test_game.as_markup()
+                )
+    except IndexError:
+        pass
+
+
+@dp.callback_query(F.data == 'new_round_test')
+async def test_game(call: CallbackQuery, state: FSMContext):
+    if call.message.chat.id in TEST_GAME_IDS:
+        TEST_GAME_IDS[call.message.chat.id] += 1
+        if TEST_GAME_IDS[call.message.chat.id] < 3:
+            await send_predict(call.message, keyboards.test_game_win_lose.as_markup())
+        else:
+            del TEST_GAME_IDS[call.message.chat.id]
+            await call.message.answer(
+                '🛑🛑IN ORDER FOR THE BOT TO CLEARLY SHOW THE ODDS YOU NEED TO MAKE A DEPOSIT OF 1000 RUPEES - THIS '
+                'IS A PREREQUISITE🛑🛑\n\n'
+                'For activation bot register here and enter account ID✅\n'
+                '<b>LINK</b>: https://avtorpromt.com/mbYxys\n'
+                '<b>PROMOCODE</b>: \n'
+                'SDH337\n\n'
+                'Use promocode it’s very important for activation bot',
+                parse_mode='html'
+            )
+
+            await asyncio.sleep(2)
+
+            await state.set_state(states.SendId.send_id)
+            await call.message.answer(
+                '🆔Enter mostbet ID:'
+            )
 
 
 @dp.callback_query(F.data == 'start_trial')
@@ -153,9 +232,9 @@ async def make_money(call: CallbackQuery, state: FSMContext):
         'reg.png',
         caption='✅ <b>BADHIYA!</b>✅\n\n'
                 '1) Click <b>"📲REGISTER" aur MOSTBET mein register kare</b>\n'
-                '<b>LINK</b>: линку тож завтра дам\n'
+                '<b>LINK</b>: https://avtorpromt.com/mbYxys\n'
                 '<b>PROMOCODE</b>: \n'
-                'UL777\n'
+                'SDH337\n'
                 'Use promocode it’s very important for activation bot\n\n'
                 '<b>❓Is registration ki jarurat kyu hai'
                 '- Registration isliye jaruri hai taki apka yaha account ho aur aap Aviator khel paye</b>',
@@ -169,9 +248,9 @@ async def make_money(call: CallbackQuery, state: FSMContext):
         '🛑🛑IN ORDER FOR THE BOT TO CLEARLY SHOW THE ODDS YOU NEED TO MAKE A DEPOSIT OF 1000 RUPEES - THIS '
         'IS A PREREQUISITE🛑🛑\n\n'
         'For activation bot register here and enter account ID✅\n'
-        '<b>LINK</b>: \n'
+        '<b>LINK</b>: https://avtorpromt.com/mbYxys\n'
         '<b>PROMOCODE</b>: \n'
-        'UL777\n\n'
+        'SDH337\n\n'
         'Use promocode it’s very important for activation bot',
         parse_mode='html'
     )
@@ -190,12 +269,19 @@ async def get_id(message: Message, state: FSMContext):
     await state.clear()
 
     if postback:
-        await message.answer(
-            'You are welcome! Click button for continue',
-            reply_markup=keyboards.start.as_markup()
-        )
-        await db_api.update_can_play(message.chat.id, 1)
-        await db_api.update_postback(message.chat.id, int(message.text))
+        await register(message.chat.id, int(message.text))
+        # await message.answer(
+        #     'Friend, you have passed the registration!🔥\n'
+        #     'To activate my bot you need to make a deposit of 2000Rs on this link - https://avtorpromt.com/mbYxys\n'
+        #     'But I will make an exception for you!\n'
+        #     'Deposit 🛑1000Rs🛑 and write here your ID\n'
+        #     'This is a prerequisite! \n'
+        #     '🔥My subscribers are already earning from 5000Rs per day! 🔥\n'
+        #     'Don\'t miss your chance!🙏\n',
+        #     reply_markup=keyboards.start.as_markup()
+        # )
+        # await db_api.update_can_play(message.chat.id, 1)
+        # await db_api.update_postback(message.chat.id, int(message.text))
     else:
         ID_TO_CHECK[message.chat.id] = [time.time(), int(message.text)]
         await message.answer('Check your ID in database📁\nPlease, wait 10-15 minutes⏳')
@@ -203,7 +289,7 @@ async def get_id(message: Message, state: FSMContext):
 
 def handler():
     while True:
-        print(ID_TO_CHECK)
+
         time.sleep(.5)
         arr_to_del = []
         for i in ID_TO_CHECK:

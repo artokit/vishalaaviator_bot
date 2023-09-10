@@ -22,3 +22,19 @@ res_of_game.row(
     InlineKeyboardButton(text='WIN', callback_data='game:win'),
     InlineKeyboardButton(text='LOSE', callback_data='game:lose')
 )
+
+contact_button = InlineKeyboardBuilder()
+contact_button.row(InlineKeyboardButton(text='CONTACT ME', url='https://t.me/vishalaviator'))
+
+test_game = InlineKeyboardBuilder()
+test_game.row(InlineKeyboardButton(text='NEW ROUND', callback_data='new_round_test'))
+
+test_game_win_lose = InlineKeyboardBuilder()
+test_game_win_lose.row(
+    InlineKeyboardButton(text='WIN', callback_data='new_round_test'),
+    InlineKeyboardButton(text='LOSE', callback_data='new_round_test')
+)
+
+welcome = InlineKeyboardBuilder()
+welcome.row(InlineKeyboardButton(text='🚀START🚀', callback_data='menu'))
+welcome.row(InlineKeyboardButton(text='💬CONTACT ME💬', url='https://t.me/vishalaviator'))
