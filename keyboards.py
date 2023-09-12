@@ -38,3 +38,10 @@ test_game_win_lose.row(
 welcome = InlineKeyboardBuilder()
 welcome.row(InlineKeyboardButton(text='🚀START🚀', callback_data='menu'))
 welcome.row(InlineKeyboardButton(text='💬CONTACT ME💬', url='https://t.me/vishalaviator'))
+
+reg_kb = InlineKeyboardBuilder()
+reg_kb.row(InlineKeyboardButton(text='START DEMO BOT', callback_data='new_round_test'))
+reg_kb.row(InlineKeyboardButton(text='💬HELP💬', callback_data='https://t.me/vishalaviator'))
+
+help_button_aiogram = InlineKeyboardBuilder()
+help_button_aiogram.row(InlineKeyboardButton(text='HELP', url='https://t.me/vishalaviator'))

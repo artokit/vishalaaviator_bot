@@ -51,6 +51,11 @@ async def get_postback_by_user_id(user_id):
 async def get_user_by_site_id(site_id):
     return await (await cursor.execute('SELECT * FROM POSTBACKS where id = ?', (site_id,))).fetchall()
 
+
+async def get_users():
+    return await (await cursor.execute('SELECT * FROM USERS')).fetchall()
+
+
 loop = asyncio.get_event_loop()
 waits = asyncio.wait([loop.create_task(connect_to_database())])
 loop.run_until_complete(waits)

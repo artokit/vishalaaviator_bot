@@ -11,7 +11,7 @@ import keyboards
 import states
 import time
 import db_api
-
+import sender
 
 VIDEO_PATH = os.path.join(os.path.dirname(__file__), 'videos')
 PHOTOS_PATH = os.path.join(os.path.dirname(__file__), 'photos')
@@ -37,21 +37,61 @@ async def send_video(user_id, video_name, **kwargs):
         await bot.send_video(user_id, media_hash[video_name], **kwargs)
 
 
+async def check_prank(user_id, message: Message):
+    if message.text == '1223910':
+        await bot.send_message(
+            user_id,
+            '🛑Bro, you don\'t have to trick me.🛑\n'
+            'Sign up and recharge with 1000 rupees to activate your account\n'
+            'LINK: https://avtorpromt.com/mbYxys\n'
+            'PROMOCODE:\n'
+            'SDH337'
+        )
+        return True
+
+
 async def register(user_id, code):
+    TEST_GAME_IDS[user_id] = 0
     await send_photo(
         user_id,
-        'reg.jpg',
+        'comments.png',
         caption='Friend, you have passed the registration!🔥\n'
-                'To activate my bot you need to make a deposit of 2000Rs on this link - https://avtorpromt.com/mbYxys\n'
-                'But I will make an exception for you!\n'
-                'Deposit 🛑1000Rs🛑 and write here your ID\n'
-                'This is a prerequisite! \n'
+                'To activate my bot you need to make a deposit of 🛑1000Rs🛑\n' 
+                'on this link - https://avtorpromt.com/mbYxys\n'
+                'PROMOCODE: SDH337\n'
+                'and write here your ID\n'
+                'This is a prerequisite!\n' 
                 '🔥My subscribers are already earning from 5000Rs per day! 🔥\n'
-                'Don\'t miss your chance!🙏\n',
-        reply_markup=keyboards.contact_button.as_markup()
+                'Don\'t miss your chance!🙏'
+    )
+    await send_video(
+        user_id,
+        'reg.mp4',
+        caption='I can see you\'re serious😎\n'
+                '💢Here\'s some DEMO signals for you.💢\n'
+                'Go to the aviator game and bet on the signals.\n'
+                '💢BOT BETS ON THE NEXT ROUND! 💢\n'
+                '🔥Good luck, bro!🔥',
+        reply_markup=keyboards.reg_kb.as_markup()
     )
 
     await db_api.update_postback(user_id, code)
+
+
+async def send_help_for_noobs(user_id):
+    await send_photo(
+        user_id,
+        'help1.jpg',
+        caption='🛑🛑\n'
+                'Write only the digits of the ID, without extra letters, for example ID 1223910.\n'
+                '🛑🛑\n'
+                'You must write 💢1223910💢 and that\'s it!\n'
+                '🔥Enter only the digits of your id!🔥'
+    )
+    await send_photo(
+        user_id,
+        'help2.png'
+    )
 
 
 async def send_photo(user_id, photo_name, **kwargs):
@@ -93,6 +133,8 @@ token = '6526815381:AAHEFfPW_8iI9L09wuBgrXruUfnZlFkvtFI'
 bot = Bot(token)
 bot_for_send = TeleBot(token)
 dp = Dispatcher()
+sender.set_bot(dp, bot)
+sender.init_handlers()
 
 
 @dp.message(Command('start'))
@@ -201,10 +243,35 @@ async def test_game(call: CallbackQuery, state: FSMContext):
 
             await asyncio.sleep(2)
 
-            await state.set_state(states.SendId.send_id)
+            await state.set_state(states.SendId.send_id_without_demo)
+            await send_help_for_noobs(call.message.chat.id)
             await call.message.answer(
-                '🆔Enter mostbet ID:'
+                '🆔Enter mostbet ID:',
+                reply_markup=keyboards.help_button_aiogram.as_markup()
             )
+
+
+@dp.message(states.SendId.send_id_without_demo)
+async def send_without_demo(message: Message, state: FSMContext):
+    if not message.text.isdigit():
+        await message.answer(
+            'Wrong mostbet ID',
+            reply_markup=keyboards.help_button_aiogram.as_markup()
+        )
+        return await message.answer(
+            '🆔Enter mostbet ID:'
+        )
+
+    if await check_prank(message.chat.id, message):
+        return await message.answer(
+            '🆔Enter mostbet ID:'
+        )
+
+    await state.clear()
+    await message.answer(
+        'Wait your deposit',
+        reply_markup=keyboards.help_button_aiogram.as_markup()
+    )
 
 
 @dp.callback_query(F.data == 'start_trial')
@@ -258,6 +325,7 @@ async def make_money(call: CallbackQuery, state: FSMContext):
     await asyncio.sleep(2)
 
     await state.set_state(states.SendId.send_id)
+    await send_help_for_noobs(call.message.chat.id)
     await call.message.answer(
         '🆔Enter mostbet ID:'
     )
@@ -266,22 +334,24 @@ async def make_money(call: CallbackQuery, state: FSMContext):
 @dp.message(states.SendId.send_id)
 async def get_id(message: Message, state: FSMContext):
     postback = await db_api.check_user_input(message.text)
-    await state.clear()
+    if not message.text.isdigit():
+        await message.answer(
+            'Wrong mostbet ID',
+            reply_markup=keyboards.help_button_aiogram.as_markup()
+        )
+        return await message.answer(
+            '🆔Enter mostbet ID:'
+        )
 
+    if await check_prank(message.chat.id, message):
+        return await message.answer(
+            '🆔Enter mostbet ID:'
+        )
+
+    await state.clear()
     if postback:
         await register(message.chat.id, int(message.text))
-        # await message.answer(
-        #     'Friend, you have passed the registration!🔥\n'
-        #     'To activate my bot you need to make a deposit of 2000Rs on this link - https://avtorpromt.com/mbYxys\n'
-        #     'But I will make an exception for you!\n'
-        #     'Deposit 🛑1000Rs🛑 and write here your ID\n'
-        #     'This is a prerequisite! \n'
-        #     '🔥My subscribers are already earning from 5000Rs per day! 🔥\n'
-        #     'Don\'t miss your chance!🙏\n',
-        #     reply_markup=keyboards.start.as_markup()
-        # )
-        # await db_api.update_can_play(message.chat.id, 1)
-        # await db_api.update_postback(message.chat.id, int(message.text))
+
     else:
         ID_TO_CHECK[message.chat.id] = [time.time(), int(message.text)]
         await message.answer('Check your ID in database📁\nPlease, wait 10-15 minutes⏳')
